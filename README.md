@@ -1,6 +1,6 @@
 # <a href="https://pypi.python.org/pypi/pyvainglory">PyVainglory</a>
 
-A python wrapper for madglory's [Vainglory API](http://battlerite-docs.readthedocs.io/en/master/introduction.html)
+A python wrapper for madglory's [Vainglory API](http://vainglory-gamelocker-documentation.readthedocs.io/en/master/introduction.html)
 complete with asynchronous and synchronous client implementations.
 
 ```
