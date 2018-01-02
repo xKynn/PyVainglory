@@ -1,0 +1,6 @@
+aiohttp
+requests
+pybattlerite
+sphinx_autodoc_typehints
+sphinx_py3doc_enhanced_theme
+numpydoc
