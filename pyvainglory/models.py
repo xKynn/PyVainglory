@@ -1,9 +1,10 @@
 import datetime
+
 from collections import namedtuple
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
-
 from .errors import VGPaginationError
+from .const import skins, regions, game_modes, items
 
 
 def _get_object(lst, _id):
@@ -45,7 +46,7 @@ class Player(BaseVGObject):
         A general unique ID for each type of data.
     name : str
         The player's name
-    region : str
+    region : tuple(region_code: str, friendly_region_name: str)
         The region id for this Player's region, ex: 'sg', 'na', etc.
     elo_history : dict
         The player's past highest elo for seasons 4 through 9.
@@ -81,7 +82,7 @@ class Player(BaseVGObject):
         super().__init__(data)
         if data.get('attributes'):
             self.name = data['attributes']['name']
-            self.region = data['attributes']['shardId']
+            self.region = data['attributes']['shardId'], regions[data['attributes']['shardId']]
             stats = data['attributes']['stats']
             self.elo_history = {season: stats['elo_earned_season_{}'.format(season)] for season in range(4, 10)}
             if stats['karmaLevel'] == 2:
@@ -129,7 +130,7 @@ class Participant(BaseVGObject):
     id : str
         A general unique ID for each type of data.
     actor : str
-    region : str
+    region : tuple(region_code: str, friendly_region_name: str)
     assists : int
     crystal_mines_captured : int
     deaths : int
@@ -157,7 +158,7 @@ class Participant(BaseVGObject):
         super().__init__(participant)
         data = _get_object(included, participant['id'])
         self.actor = data['attributes']['actor']
-        self.region = data['attributes']['shardId']
+        self.region = data['attributes']['shardId'], regions[data['attributes']['shardId']]
         stats = data['attributes']['stats']
         self.assists = stats['assists']
         self.crystal_mines_captured = stats['crystalMineCaptures']
@@ -167,10 +168,9 @@ class Participant(BaseVGObject):
         self.gold = stats['gold']
         self.gold_mines_captured = stats['goldMineCaptures']
 
-        # TODO: Convert item names to legible item names
-        self.items_bought = stats['itemGrants']
-        self.items_sold = stats['itemSells']
-        self.items_used = stats['itemUses']
+        self.items_bought = {items[name.strip('*')]: quant for name, quant in stats['itemGrants'].items()}
+        self.items_sold = {items[name.strip('*')]: quant for name, quant in stats['itemSells'].items()}
+        self.items_used = {items[name.strip('*')]: quant for name, quant in stats['itemUses'].items()}
 
         self.final_build = stats['items']
         self.jungle_kills = stats['jungleKills']
@@ -178,16 +178,17 @@ class Participant(BaseVGObject):
         self.krakens_captured = stats['krakenCaptures']
         self.minion_kills = stats['minionKills']
 
-        # TODO:
-        # 1. Skin keys to legible skin names, some of the newer skin names aren't on the community repo i'll have to
-        #    add those myself.
-        self.skin = stats['skinKey']
+        if stats['skinKey'] in skins:
+            self.skin = skins[stats['skinKey']]
+        else:
+            self.skin = stats['skinKey']
+
         self.turrets_captured = stats['turretCaptures']
         self.player = Player(data['relationships']['player']['data'])
 
     def __repr__(self):
         return "<Participant: id={0.id} region={0.region} actor={0.actor} bot={1}>".format(self, True if not
-                                                                                               self.player else False)
+                                                                                           self.player else False)
 
 
 class Roster(BaseVGObject):
@@ -198,7 +199,7 @@ class Roster(BaseVGObject):
     ----------
     id : str
         A general unique ID for each type of data.
-    region : str
+    region : tuple(region_code: str, friendly_region_name: str)
         The region shard on which this roster data resides.
     aces : int
     gold : int
@@ -219,7 +220,7 @@ class Roster(BaseVGObject):
     def __init__(self, roster, included):
         super().__init__(roster)
         data = _get_object(included, roster['id'])
-        self.region = data['attributes']['shardId']
+        self.region = data['attributes']['shardId'], regions[data['attributes']['shardId']]
         stats = data['attributes']['stats']
         self.aces = stats['acesEarned']
         self.gold = stats['gold']
@@ -254,11 +255,11 @@ class MatchBase(BaseVGObject):
         Time when the match was created.
     duration : int
         The match's duration in seconds.
-    game_mode : str
+    game_mode : tuple(mode_code: str, friendly_mode_name: str)
         The gamemode this match was of.
     patch : str
         The Vainglory patch version this match was played on.
-    region : str
+    region : tuple(region_code: str, friendly_region_name: str)
         The region shard on which this match data resides.
     game_end_reason : str
         Can either be 'victory' or 'surrender'.
@@ -280,9 +281,9 @@ class MatchBase(BaseVGObject):
         super().__init__(data)
         self.created_at = datetime.datetime.strptime(data['attributes']['createdAt'], "%Y-%m-%dT%H:%M:%SZ")
         self.duration = data['attributes']['duration']
-        self.game_mode = data['attributes']['gameMode']
+        self.game_mode = data['attributes']['gameMode'], game_modes[data['attributes']['gameMode']]
         self.patch = data['attributes']['patchVersion']
-        self.region = data['attributes']['shardId']
+        self.region = data['attributes']['shardId'], regions[data['attributes']['shardId']]
         self.game_end_reason = data['attributes']['stats']['endGameReason']
         self.rosters = []
         for roster in data['relationships']['rosters']['data']:
